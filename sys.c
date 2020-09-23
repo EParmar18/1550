@@ -2357,3 +2357,49 @@ int orderly_poweroff(bool force)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(orderly_poweroff);
+
+DEFINE_SPINLOCK(sem_lock);
+
+struct cs1550_node{
+	struct cs1550_node* next;
+	struct task_struct* process;
+};
+
+struct cs1550_sem{
+	int value;
+	struct cs1550_node* head;
+	struct cs1550_node* tail;
+}
+
+asmlinkage long sys_cs1550_down(struct cs1550_sem *semList)
+{
+		spinlock(&sem_lock);
+		semList->value -= 1;
+
+		if(semList->value < 0)
+		{
+			struct cs1550_node* initialNode = (struct cs1550_node*)kmalloc(sizeof(struct cs1550_node),GFP_ATOMIC);
+			initialNode->task = current;
+			initialNode->next = NULL;
+
+			if(semList->head == NULL)
+			{
+				semList->head = initialNode;
+			}
+			else
+			{
+				semList->tail->next = initialNode;
+			}
+			
+			semList->tail = initialNode;
+			set_current_state(TASK_INTERRUPTIBLE);
+			spin_unlock(&sem_lock);
+			schedule();
+		}
+		else
+		{
+			spin_unlock(&sem_lock);
+		}
+
+		return 0;
+}
