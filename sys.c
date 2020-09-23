@@ -2403,3 +2403,34 @@ asmlinkage long sys_cs1550_down(struct cs1550_sem *semList)
 
 		return 0;
 }
+
+asmlinkage long sys_cs1550_up(struct cs1550_sem *semList)
+{
+	spinlock(&sem_lock);
+	semList->value += 1;
+
+	if(semList->value <= 0)
+	{
+		struct task_struct* process;
+		struct cs1550_node* initialNode = semList->head;
+		if(initialNode != NULL)
+		{
+			process = initialNode->process;
+
+			if(initialNode == semList->tail)
+			{
+				semList->head = NULL;
+				semList->tail = NULL:
+			}
+			else
+			{
+				semList->head = initialNode->next;
+			}
+			wake_up_process(process);
+		}
+		kfree(initialNode);
+	}
+	spin_unlock(&sam_lock);
+
+	return 0;
+}
