@@ -330,13 +330,15 @@
 #define __NR_timerfd		322
 #define __NR_eventfd		323
 #define __NR_fallocate		324
+#define __NR_sys_cs1550_down  325
+#define __NR_sys_cs1550_up  326
 
 // add new syscall numbers here
 
 #ifdef __KERNEL__
 
 // change this number as well
-#define NR_syscalls 325
+#define NR_syscalls 327
 
 #define __ARCH_WANT_IPC_PARSE_VERSION
 #define __ARCH_WANT_OLD_READDIR
