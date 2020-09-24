@@ -1,16 +1,44 @@
 #include <linux/cs1550.h>
 
 DEFINE_SPINLOCK(sem_lock);
-struct cs1550_node semList = {0, NULL};
+struct list_node semList = {0, NULL};
 long semIdentifier = 1000;
 
+asmlinkage struct cs1550_sem *list_find_name_key(struct list_node semList, char name[32], char key[32])
+{ 
+    struct cs1550_sem curr = semList->head;
+    while(curr->next != NULL)
+    {
+      if(curr->name == name)
+      {
+        if(curr->key == key)
+        {
+          return curr;
+        }
+      }
+    }
+    return NULL;
+}
 /* This syscall creates a new semaphore and stores the provided key to protect access to the semaphore. The integer value is used to initialize the semaphore's value. The function returns the identifier of the created semaphore, which can be used to down and up the semaphore. */
 asmlinkage long sys_cs1550_create(int value, char name[32], char key[32]){
-  struct cs1550_sem newSem = {value, semIdentifer, ,name, key, lock, );
+  struct cs1550_sem newSem = {};
+  newSem->value = value;
+  newSem->key = key;
+  newSem->name = name;
+  newSem->sem_id = semIdentifier;
+ 
+  if(semList->head == NULL)
+  {
+    semList->head = newSem;
+  }
+  else
+  {
+    semList->tail->next = newSem;
+    semList->tail = newSem;
+  }
+  
 
-  semList->tail->next = newSem;
   semIdentifier++;
-
   return 0;
 }
 /* This syscall opens an already created semaphore by providing the semaphore name and the correct key. The function returns the identifier of the opened semaphore if the key matches the stored key or -1 otherwise. */
@@ -20,9 +48,9 @@ asmlinkage long sys_cs1550_open(char name[32], char key[32]){
   semaphore = list_find_name_key(semList, name, key);
   spin_unlock(&sem_lock);
 
-  if(temp != NULL)
+  if(semaphore != NULL)
   {
-    return temp->sem_id;
+    return semaphore->sem_id;
   }
   return -1;
 }
@@ -55,10 +83,14 @@ asmlinkage long sys_cs1550_down(long sem_id){
   semaphore->value -= 1;
   spin_unlock(&sem_lock);
 
+  if(semaphore == NULL)
+  {
+    return -1;
+  }
   if(semaphore->value < 0)
   {
-    struct cs1550_node* initialNode = (struct cs1550_node*)kmalloc(sizeof(struct cs1550_node), GFP_ATOMIC);
-    initalNode->task = current;
+    struct qeue_node* initialNode = (struct qeue_node*)kmalloc(sizeof(struct qeue_node), GFP_ATOMIC);
+    initalNode->task_struct = current;
     initialNode->next = NULL;
 
     if(semList->head == NULL)
@@ -91,9 +123,9 @@ asmlinkage long sys_cs1550_up(long sem_id){
   // wake_up_process(sleeping_task);
 
  // Psuedo Code 
-  spinlock(&sem_lock);
+  spin_lock(&sem_lock);
   semList->value += 1;
-
+  spin_unlock(&sem_lock);
   if(semList->value <= 0)
   {
     struct task_struct* task;
@@ -142,7 +174,7 @@ asmlinkage long sys_cs1550_close(long sem_id){
   semaphore = list_find_name_key(semList, name, key);
   if(semaphore->value == 0)
   {
-    free_semaphore(semaphore);
+    kfree(semaphore);
     spin_unlock(&sem_lock);
     return 0;
   }
