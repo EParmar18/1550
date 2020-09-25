@@ -35,8 +35,8 @@ struct queue_node{
 // Semaphore queue
 struct cs1550_queue{
    int count;
-   struct queue_node *front;
-   struct queue_node *rear;
+   struct queue_node *head;
+   struct queue_node *tail;
 };
 
 //Add to this file any other struct definitions that you may need

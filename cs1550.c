@@ -253,13 +253,13 @@ asmlinkage long sys_cs1550_close(long sem_id){
     return -1
   */
 
-  struct cs1550_sem *semaphore;
+  struct cs1550_sem *sem;
   spin_lock(&sem_lock);
+  sem = list_find_id(sem_id);
 
-  semaphore = list_find_name_key(name, key);
-  if(semaphore->value == 0)
+  if(sem->value == 0)
   {
-    kfree(semaphore);
+    kfree(sem);
     spin_unlock(&sem_lock);
     return 0;
   }
