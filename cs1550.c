@@ -1,27 +1,66 @@
 #include <linux/cs1550.h>
 
 DEFINE_SPINLOCK(sem_lock);
-struct list_node *semList = {0, NULL};
+struct sem_list *semList = {0, NULL};
 long semIdentifier = 1000;
+
+// struct queue *queue_new(void)
+// {
+//   struct cs1550_queue *q;
+//   q = (struct cs1550_queue *)kmalloc(sizeof(struct cs1550_queue), GFP_ATOMIC);
+
+//   if(q == NULL)
+//   {
+//     return NULL;
+//   }
+//   q->head = NULL;
+//   q->tail = NULL;
+//   return q;
+// }
+// struct sem_list *sem_list_new(void)
+// {
+//   struct sem_list *list;
+//   list = (struct sem_list *)kmalloc(sizeof(struct sem_list), GFP_ATOMIC);
+
+//   if(list == NULL)
+//   {
+//     return NULL;
+//   }
+
+//   list->head = NULL;
+//   list->tail = NULL;
+// }
 
 struct cs1550_sem *list_find_name_key(char name[32], char key[32])
 { 
-    struct cs1550_sem curr = semList->head;
-    while(curr->next != NULL)
+    struct list_node *curr = semList->head;
+    bool isKey = true;
+    int i;
+    while(curr != NULL)
     {
-      if(curr->name == name)
+      for(i = 0; i < 32; i++)
       {
-        if(curr->key == key)
+        if(name[i] != curr->sem->name[i] || key[i] != curr->sem->key[i])
         {
-          return curr;
+          isKey == false;
+          break;
         }
+        isKey == true;
       }
+      
+      if(isKey)
+      {
+        return curr->sem;
+      }
+      curr = curr->next;
     }
     return NULL;
 }
 /* This syscall creates a new semaphore and stores the provided key to protect access to the semaphore. The integer value is used to initialize the semaphore's value. The function returns the identifier of the created semaphore, which can be used to down and up the semaphore. */
-asmlinkage long sys_cs1550_create(int value, char name[32], char key[32]){
-  struct cs1550_sem newSem = {};
+asmlinkage long sys_cs1550_create(int value, char name[32], char key[32])
+{
+
+  struct cs1550_sem newSem = {NULL};
   newSem->value = value;
   newSem->key = key;
   newSem->name = name;
@@ -79,8 +118,8 @@ asmlinkage long sys_cs1550_down(long sem_id){
   */
   struct cs1550_sem *semaphore;
   spin_lock(&sem_lock);
-  semaphore = list_find_name_key(semList, name, key);
-  semaphore->value -*= 1;
+  semaphore = list_find_name_key( name, key);
+  semaphore->value -= 1;
   spin_unlock(&sem_lock);
 
   if(semaphore == NULL)
@@ -89,7 +128,7 @@ asmlinkage long sys_cs1550_down(long sem_id){
   }
   if(semaphore->value < 0)
   {
-    struct qeue_node* initialNode = (struct qeue_node*)kmalloc(sizeof(struct qeue_node), GFP_ATOMIC);
+    struct queue_node* initialNode = (struct queue_node*)kmalloc(sizeof(struct queue_node), GFP_ATOMIC);
     initalNode->task_struct = current;
     initialNode->next = NULL;
 
@@ -112,9 +151,6 @@ asmlinkage long sys_cs1550_down(long sem_id){
     spin_unlock(&sem_lock);
   }
   
-    
-  }
-
   return 0;
 }
 /* This syscall implements the up operation on an already opened semaphore using the semaphore identifier obtained from a previous call to sys_cs1550_create or sys_cs1550_open. The function returns 0 when successful or -1 otherwise (e.g., if the semaphore id is invalid). Please check the lecture slides for pseudo-code of the up operation. */
@@ -171,7 +207,7 @@ asmlinkage long sys_cs1550_close(long sem_id){
   struct cs1550_sem *semaphore;
   spin_lock(&sem_lock);
 
-  semaphore = list_find_name_key(semList, name, key);
+  semaphore = list_find_name_key(name, key);
   if(semaphore->value == 0)
   {
     kfree(semaphore);
