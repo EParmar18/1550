@@ -1,10 +1,10 @@
 #include <linux/cs1550.h>
 
 DEFINE_SPINLOCK(sem_lock);
-struct list_node semList = {0, NULL};
+struct list_node *semList = {0, NULL};
 long semIdentifier = 1000;
 
-asmlinkage struct cs1550_sem *list_find_name_key(struct list_node semList, char name[32], char key[32])
+struct cs1550_sem *list_find_name_key(char name[32], char key[32])
 { 
     struct cs1550_sem curr = semList->head;
     while(curr->next != NULL)
@@ -45,7 +45,7 @@ asmlinkage long sys_cs1550_create(int value, char name[32], char key[32]){
 asmlinkage long sys_cs1550_open(char name[32], char key[32]){
   struct cs1550_sem *semaphore;
   spin_lock(&sem_lock);
-  semaphore = list_find_name_key(semList, name, key);
+  semaphore = list_find_name_key(name, key);
   spin_unlock(&sem_lock);
 
   if(semaphore != NULL)
@@ -80,7 +80,7 @@ asmlinkage long sys_cs1550_down(long sem_id){
   struct cs1550_sem *semaphore;
   spin_lock(&sem_lock);
   semaphore = list_find_name_key(semList, name, key);
-  semaphore->value -= 1;
+  semaphore->value -*= 1;
   spin_unlock(&sem_lock);
 
   if(semaphore == NULL)

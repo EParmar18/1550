@@ -15,10 +15,15 @@ struct cs1550_sem
 
 // Global semaphore list
 struct list_node{
-   struct cs1550_sem *head;
-   struct cs1550_sem *tail;
+   struct cs1550_sem sem;
+   struct list_element *next;
+
 }
 
+struct sem_list{
+   struct list_element *head;
+   struct list_element *tail;
+}
 // Node for the semaphore queues
 struct qeue_node{
    struct cs1550_node* next;
