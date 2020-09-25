@@ -1,3 +1,5 @@
+#ifndef _LINUX_CS1550_H
+#define _LINUX_CS1550_H 1
 #include <linux/smp_lock.h>
 
 
@@ -23,6 +25,7 @@ struct sem_list{
    struct list_node *head;
    struct list_node *tail;
 }
+
 // Node for the semaphore queues
 struct queue_node{
    struct cs1550_node* next;
@@ -37,3 +40,5 @@ struct cs1550_queue{
 }
 
 //Add to this file any other struct definitions that you may need
+
+#endif

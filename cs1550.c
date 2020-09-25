@@ -1,8 +1,21 @@
 #include <linux/cs1550.h>
 
 DEFINE_SPINLOCK(sem_lock);
-struct sem_list *semList = {0, NULL};
-long semIdentifier = 1000;
+
+struct sem_list *sem_list_new(void)
+{
+  struct sem_list *s;
+  s = (struct sem_list *)kmalloc(sizeof(struct sem_list), GFP_ATOMIC);
+
+  if(s == NULL)
+  {
+    return NULL;
+  }
+
+  s->head = NULL;
+  s->tail = NULL;
+}
+
 
 // struct queue *queue_new(void)
 // {
@@ -17,50 +30,45 @@ long semIdentifier = 1000;
 //   q->tail = NULL;
 //   return q;
 // }
-// struct sem_list *sem_list_new(void)
-// {
-//   struct sem_list *list;
-//   list = (struct sem_list *)kmalloc(sizeof(struct sem_list), GFP_ATOMIC);
 
-//   if(list == NULL)
-//   {
+struct sem_list *semList;
+int listSize = 0;
+long semIdentifier = 1000;
+
+// struct cs1550_sem *list_find_name_key(char name[32], char key[32])
+// { 
+//     struct list_node *curr = semList->head;
+//     bool isKey = true;
+//     int i;
+//     while(curr != NULL)
+//     {
+//       for(i = 0; i < 32; i++)
+//       {
+//         if(name[i] != (*curr).sem.name[i] || key[i] != curr.sem.key[i])
+//         {
+//           isKey == false;
+//           break;
+//         }
+//         isKey == true;
+//       }
+      
+//       if(isKey)
+//       {
+//         return curr->sem;
+//       }
+//       curr = curr->next;
+//     }
 //     return NULL;
-//   }
-
-//   list->head = NULL;
-//   list->tail = NULL;
 // }
 
-struct cs1550_sem *list_find_name_key(char name[32], char key[32])
-{ 
-    struct list_node *curr = semList->head;
-    bool isKey = true;
-    int i;
-    while(curr != NULL)
-    {
-      for(i = 0; i < 32; i++)
-      {
-        if(name[i] != curr->sem->name[i] || key[i] != curr->sem->key[i])
-        {
-          isKey == false;
-          break;
-        }
-        isKey == true;
-      }
-      
-      if(isKey)
-      {
-        return curr->sem;
-      }
-      curr = curr->next;
-    }
-    return NULL;
-}
 /* This syscall creates a new semaphore and stores the provided key to protect access to the semaphore. The integer value is used to initialize the semaphore's value. The function returns the identifier of the created semaphore, which can be used to down and up the semaphore. */
 asmlinkage long sys_cs1550_create(int value, char name[32], char key[32])
 {
-
-  struct cs1550_sem newSem = {NULL};
+  if(listSize == 0)
+  {
+    sem_list_new();
+  }
+  struct cs1550_sem newSem;
   newSem->value = value;
   newSem->key = key;
   newSem->name = name;
