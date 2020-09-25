@@ -88,7 +88,7 @@ asmlinkage long sys_cs1550_create(int value, char name[32], char key[32])
   }
 
   int i;
-  struct cs1550_sem *newSem;
+  struct cs1550_sem *newSem; // (struct cs1550_sem *)kmalloc(sizeof(struct cs1550_sem));
   (*newSem).value = value;
 
   for(i = 0; i < 32; i++)
@@ -115,7 +115,7 @@ asmlinkage long sys_cs1550_create(int value, char name[32], char key[32])
 }
 /* This syscall opens an already created semaphore by providing the semaphore name and the correct key. The function returns the identifier of the opened semaphore if the key matches the stored key or -1 otherwise. */
 asmlinkage long sys_cs1550_open(char name[32], char key[32]){
-  struct cs1550_sem *semaphore;
+  struct cs1550_sem *semaphore; // (struct cs1550_sem *)kmalloc(sizeof(struct cs1550_sem));
   spin_lock(&sem_lock);
   semaphore = list_find_name_key(name, key);
   spin_unlock(&sem_lock);
@@ -134,47 +134,59 @@ asmlinkage long sys_cs1550_down(long sem_id){
   // Invoke schedule() to get next task
   // Create a spinlock with DEFINE_SPINLOCK(sem_lock);
 
-  // Surround critical reagions with the following 
-  /*
-  lock(global_spinlock)
-  let sem = get_semaphore_by_id(sem_id)
-  sem->refcount++
-  unlock(global_spinlock)
+   struct cs1550_sem *sem; // (struct cs1550_sem *)kmalloc(sizeof(struct cs1550_sem));
+   spin_lock(&sem_lock);
+   sem = list_find_id(sem_id);
+   
 
-  spin_lock(sem->lock)
-    //Implementation of down() follows
-  spin_unlock(sem->lock)
+  // if(semaphore == NULL)
+  // {
+  //   return -1;
+  // }
+  // if(semaphore->value < 0)
+  // {
+  //   struct queue_node* initialNode = (struct queue_node*)kmalloc(sizeof(struct queue_node), GFP_ATOMIC);
+  //   initalNode->task_struct = current;
+  //   initialNode->next = NULL;
 
-  lock(global_spinlock)
-  sem->refcount--
-  unlock(global_spinlock)
-  */
-  struct cs1550_sem *semaphore;
-  spin_lock(&sem_lock);
-  semaphore = list_find_id(sem_id);
-  semaphore->value -= 1;
-  spin_unlock(&sem_lock);
+  //   if(semList->head == NULL)
+  //   {
+  //     semaphore->head = initialNode;
+  //   }
+  //   else
+  //   {
+  //     semaphore->tail->next = initialNode;
+  //   }
 
-  if(semaphore == NULL)
+  //   semaphore->tail = initialNode;
+  //   set_current_state(TASK_INTERRUPTIBLE);
+  //   spin_unlock(&sem_lock);
+  //   schedule();
+  // }
+  // else
+  // {
+  //   spin_unlock(&sem_lock);
+  // }
+  
+  sem->value--;
+  if(sem->value < 0)
   {
-    return -1;
-  }
-  if(semaphore->value < 0)
-  {
-    struct queue_node* initialNode = (struct queue_node*)kmalloc(sizeof(struct queue_node), GFP_ATOMIC);
-    initalNode->task_struct = current;
-    initialNode->next = NULL;
+    struct queue_node *n = (struct queue_node *)kmalloc(sizeof(struct queue_node), GFP_ATOMIC);
 
-    if(semList->head == NULL)
+    n->next = NULL;
+    n->process = current;
+
+    if(sem->semaphores->head != NULL)
     {
-      semaphore->head = initialNode;
+      sem->semaphores->tail->next = n;
     }
     else
     {
-      semaphore->tail->next = initialNode;
+      sem->semaphores->head = n;
     }
 
-    semaphore->tail = initialNode;
+    sem->semaphores->tail = n;
+    
     set_current_state(TASK_INTERRUPTIBLE);
     spin_unlock(&sem_lock);
     schedule();
@@ -184,6 +196,7 @@ asmlinkage long sys_cs1550_down(long sem_id){
     spin_unlock(&sem_lock);
   }
   
+  
   return 0;
 }
 /* This syscall implements the up operation on an already opened semaphore using the semaphore identifier obtained from a previous call to sys_cs1550_create or sys_cs1550_open. The function returns 0 when successful or -1 otherwise (e.g., if the semaphore id is invalid). Please check the lecture slides for pseudo-code of the up operation. */
@@ -192,35 +205,38 @@ asmlinkage long sys_cs1550_up(long sem_id){
   // wake_up_process(sleeping_task);
 
  // Psuedo Code 
+  struct cs1550_sem *sem; // (struct cs1550_sem *)kmalloc(sizeof(struct cs1550_sem));
   spin_lock(&sem_lock);
-  semList->value += 1;
-  spin_unlock(&sem_lock);
-  if(semList->value <= 0)
-  {
-    struct task_struct* task;
-    struct cs1550_node* initialNode = semList->head;
-    if(initialNode != NULL)
-    {
-      process = initialNode->process;
+  sem = list_find_id(sem_id);
+  sem->value++;
 
-      if(initialNode == semList->tail)
+  if(sem->value <= 0)
+  {
+    struct task_struct *tTask;
+    struct queue_node *n = sem->semaphores->head;
+
+    if(n != NULL)
+    {
+      tTask = n->process;
+      if(n == sem->semaphores->tail)
       {
-        semList->head = NULL;
-        semList->tail = NULL;
+        sem->semaphores->head = NULL;
+        sem->semaphores->tail = NULL;
+
       }
       else
       {
-        semList->head = initialNode->next;
+        sem->semaphores->head = n->next;
       }
-      wake_up_process(process);
+
+      wake_up_process(tTask);
       
     }
-    kfree(initialNode);
+
+    kfree(n);
   }
+
   spin_unlock(&sem_lock);
-
-  return 0;
-
   return 0;
 }
 /* This syscall removes an already created semaphore from the system-wide semaphore list using the semaphore identifier obtained from a previous call to sys_cs1550_create or sys_cs1550_open. The function returns 0 when successful or -1 otherwise (e.g., if the semaphore id is invalid or the semaphore's process queue is not empty). */
