@@ -17,49 +17,67 @@ struct sem_list *sem_list_new(void)
 }
 
 
-// struct queue *queue_new(void)
-// {
-//   struct cs1550_queue *q;
-//   q = (struct cs1550_queue *)kmalloc(sizeof(struct cs1550_queue), GFP_ATOMIC);
+struct queue *queue_new(void)
+{
+  struct cs1550_queue *q;
+  q = (struct cs1550_queue *)kmalloc(sizeof(struct cs1550_queue), GFP_ATOMIC);
 
-//   if(q == NULL)
-//   {
-//     return NULL;
-//   }
-//   q->head = NULL;
-//   q->tail = NULL;
-//   return q;
-// }
+  if(q == NULL)
+  {
+    return NULL;
+  }
+  q->head = NULL;
+  q->tail = NULL;
+  return q;
+}
 
 struct sem_list *semList;
 int listSize = 0;
 long semIdentifier = 1000;
 
-// struct cs1550_sem *list_find_name_key(char name[32], char key[32])
-// { 
-//     struct list_node *curr = semList->head;
-//     bool isKey = true;
-//     int i;
-//     while(curr != NULL)
-//     {
-//       for(i = 0; i < 32; i++)
-//       {
-//         if(name[i] != (*curr).sem.name[i] || key[i] != curr.sem.key[i])
-//         {
-//           isKey == false;
-//           break;
-//         }
-//         isKey == true;
-//       }
+struct cs1550_sem *list_find_name_key(char name[32], char key[32])
+{ 
+    struct list_node *curr = semList->head;
+    struct cs1550_sem *semaphore;
+    bool isKey = true;
+    int i;
+    while(curr != NULL)
+    {
+      for(i = 0; i < 32; i++)
+      {
+        if(name[i] != (*curr).sem.name[i] || key[i] != (*curr).sem.key[i])
+        {
+          isKey = false;
+          break;
+        }
+        isKey = true;
+      }
       
-//       if(isKey)
-//       {
-//         return curr->sem;
-//       }
-//       curr = curr->next;
-//     }
-//     return NULL;
-// }
+      if(isKey)
+      {
+        semaphore = &(curr->sem);
+        return semaphore;
+      }
+      curr = curr->next;
+    }
+    return NULL;
+}
+
+struct cs1550_sem *list_find_id(long sem_id)
+{ 
+    struct list_node *curr = semList->head;
+    struct cs1550_sem *semaphore;
+  
+    while(curr != NULL)
+    {
+      if((*curr).sem.sem_id = sem_id)
+      {
+        return &(curr->sem);
+      }
+      curr = curr->next;
+    }
+    return NULL;
+}
 
 /* This syscall creates a new semaphore and stores the provided key to protect access to the semaphore. The integer value is used to initialize the semaphore's value. The function returns the identifier of the created semaphore, which can be used to down and up the semaphore. */
 asmlinkage long sys_cs1550_create(int value, char name[32], char key[32])
@@ -68,10 +86,17 @@ asmlinkage long sys_cs1550_create(int value, char name[32], char key[32])
   {
     sem_list_new();
   }
-  struct cs1550_sem newSem;
-  newSem->value = value;
-  newSem->key = key;
-  newSem->name = name;
+
+  int i;
+  struct cs1550_sem *newSem;
+  (*newSem).value = value;
+
+  for(i = 0; i < 32; i++)
+  {
+    (*newSem).key[i] = key[i];
+    (*newSem).name[i] = name[i];
+  }
+
   newSem->sem_id = semIdentifier;
  
   if(semList->head == NULL)
@@ -126,7 +151,7 @@ asmlinkage long sys_cs1550_down(long sem_id){
   */
   struct cs1550_sem *semaphore;
   spin_lock(&sem_lock);
-  semaphore = list_find_name_key( name, key);
+  semaphore = list_find_id(sem_id);
   semaphore->value -= 1;
   spin_unlock(&sem_lock);
 
